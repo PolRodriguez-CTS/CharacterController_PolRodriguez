@@ -13,7 +13,8 @@ public class PlayerController : MonoBehaviour
     private Vector2 _moveInput;
     private InputAction _jumpAction;
     private InputAction _lookAction;
-    [SerializeField] private Vector2 _lookInput;
+    private Vector2 _lookInput;
+    private InputAction _aimAction;
     
 
     [SerializeField] private float _movementSpeed = 5;
@@ -40,6 +41,7 @@ public class PlayerController : MonoBehaviour
         _moveAction = InputSystem.actions["Move"];
         _jumpAction = InputSystem.actions["Jump"];
         _lookAction = InputSystem.actions["Look"];
+        _aimAction = InputSystem.actions["Aim"];
 
         //La cámara principal tiene que tener la tag de main camera
         _mainCamera = Camera.main.transform;
@@ -57,7 +59,17 @@ public class PlayerController : MonoBehaviour
         _moveInput = _moveAction.ReadValue<Vector2>();
         _lookInput = _lookAction.ReadValue<Vector2>();
 
-        Movement();
+
+
+        if (_aimAction.IsInProgress())
+        {
+            AimMovement();
+        }
+        else
+        {
+            Movement();
+        }
+
         //MovimientoCutre();
         //Movimiento2();
 
@@ -80,6 +92,23 @@ public class PlayerController : MonoBehaviour
 
             transform.rotation = Quaternion.Euler(0, smoothAngle, 0);
             
+            Vector3 moveDirection = Quaternion.Euler(0, targetAngle, 0) * Vector3.forward;
+
+            _controller.Move(moveDirection * _movementSpeed * Time.deltaTime);
+        }
+    }
+
+    void AimMovement()
+    {
+        Vector3 direction = new Vector3(_moveInput.x, 0, _moveInput.y);
+
+        float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + _mainCamera.eulerAngles.y;
+        float smoothAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, _mainCamera.eulerAngles.y, ref _turnSmoothVelocity, _smoothTime);
+
+        transform.rotation = Quaternion.Euler(0, smoothAngle, 0);
+        
+        if (direction != Vector3.zero)
+        {
             Vector3 moveDirection = Quaternion.Euler(0, targetAngle, 0) * Vector3.forward;
 
             _controller.Move(moveDirection * _movementSpeed * Time.deltaTime);
