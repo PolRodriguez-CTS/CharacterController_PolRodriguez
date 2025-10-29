@@ -14,7 +14,7 @@ public class Caja : MonoBehaviour, IDamageable, IInteractable
 
     }
 
-    void IDamageable.TakeDamage()
+    void IDamageable.TakeDamage(float damage)
     {
         Debug.Log("Caja recibiendo daño");
     }

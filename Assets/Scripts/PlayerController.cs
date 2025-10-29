@@ -45,9 +45,6 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Transform _grabbedObject;
     [SerializeField] private Vector3 _handSensorSize = new Vector3(1, 1, 1);
 
-    //Tao
-    
-
     void Awake()
     {
         _controller = GetComponent<CharacterController>();
@@ -106,11 +103,14 @@ public class PlayerController : MonoBehaviour
         {
             GrabObject();
         }
-        
-        if(_throwAction.WasPerformedThisFrame())
+
+        if (_throwAction.WasPerformedThisFrame())
         {
             Throw();
+            RayTest();
         }
+
+        
     }
 
     void Attack()
@@ -123,7 +123,7 @@ public class PlayerController : MonoBehaviour
             
             if(damageable != null)
             {
-                damageable.TakeDamage();
+                damageable.TakeDamage(5);
             }
         }
     }
@@ -233,13 +233,27 @@ public class PlayerController : MonoBehaviour
 
         //Aplica la gravedad
         _controller.Move(_playerGravity * Time.deltaTime);
-        
+
     }
 
     //Sensor del suelo
-    bool IsGrounded()
+    /*bool IsGrounded()
     {
         return Physics.CheckSphere(_sensor.position, _sensorRadius, _groundLayer);
+    }*/
+    
+    bool IsGrounded()
+    {
+        if (Physics.Raycast(_sensor.position, -transform.up, _sensorRadius, _groundLayer))
+        {
+            Debug.DrawRay(_sensor.position, -transform.up * _sensorRadius, Color.red);
+            return true;
+        }
+        else
+        {
+            Debug.DrawRay(_sensor.position, -transform.up * _sensorRadius, Color.green);
+            return false;
+        }
     }
 
     //Para ver donde esta el sensor
@@ -313,12 +327,72 @@ public class PlayerController : MonoBehaviour
         }
 
         Rigidbody _grabbedBody = _grabbedObject.GetComponent<Rigidbody>();
-        
+
         _grabbedObject.SetParent(null);
         _grabbedBody.isKinematic = false;
         _grabbedBody.AddForce(_mainCamera.transform.forward * _throwForce, ForceMode.Impulse);
         _grabbedObject = null;
     }
 
+    void RayTest()
+    {
+        //Raycast simple
+        //este tipo de raycast no srive demasiado porque no te devuelve la información
+        //necesitamos pasarle la posición desde la que sale el rayo, la dirección y el tamaño
+        if (Physics.Raycast(transform.position, transform.forward, 5))
+        {
+            Debug.Log("hit");
+            //Con esto podemos hacer que se dibuje el rayo
+            Debug.DrawRay(transform.position, transform.forward * 5, Color.red);
+        }
+        else
+        {
+            Debug.DrawRay(transform.position, transform.forward * 5, Color.green);
+        }
 
+        //Raycast "Avanzado"
+        //Igual que el simple pero con la variable hit, lo que nos permite almacenar la información de lo que ha impactdo el rayo
+        RaycastHit hit;
+        //out hit almacena dentro de la variable la información de lo que ha chocado el rayo
+        if(Physics.Raycast(transform.position, transform.forward, out hit, 5))
+        {
+            Debug.Log(hit.transform.name);
+            Debug.Log(hit.transform.position);
+            Debug.Log(hit.transform.gameObject.layer);
+            Debug.Log(hit.transform.tag);
+
+            /*if(hit.transform.tag == "Empujable")
+            {
+                Box box = hit.transform.GetComponent<Box>();
+
+                if(box != null)
+                {
+                    Debug.Log("cosas");
+                }
+            }*/
+
+            IDamageable damageable = hit.transform.GetComponent<IDamageable>();
+
+            if (damageable != null)
+            {
+                damageable.TakeDamage(5);
+            }
+            
+            /*
+            //acordarse de poner delta en lo del raton en el input system
+            
+            Ray ray = Camera.main.ScreenPointToRay(_lookInput);
+            RaycastHit hit;
+
+            //out lo que hace es sacar la información del impacto y almacenarla en la variable hit
+            if (Physics.Raycast(ray, out hit, Mathf.Infinity))
+            {
+                Vector3 playerForward = hit.point - transform.position;
+                Debug.Log(hit.transform.name);
+                playerForward.y = 0;
+                transform.forward = playerForward;
+            }
+            */
+        }
+    }
 }
