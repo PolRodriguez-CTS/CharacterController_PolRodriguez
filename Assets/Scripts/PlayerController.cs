@@ -16,10 +16,14 @@ public class PlayerController : MonoBehaviour
     private InputAction _lookAction;
     private Vector2 _lookInput;
     private InputAction _aimAction;
+    private InputAction _grabAction;
+    private InputAction _throwAction;
     
 
     [SerializeField] private float _movementSpeed = 5;
     [SerializeField] private float _jumpHeight = 2;
+    [SerializeField] private float _pushForce = 10;
+    [SerializeField]private float _throwForce = 20; 
     [SerializeField] private float _smoothTime = 0.2f;
     //variable de referencia
     private float _turnSmoothVelocity;
@@ -36,6 +40,14 @@ public class PlayerController : MonoBehaviour
 
     private Transform _mainCamera;
 
+    //Coger objetos
+    [SerializeField] private Transform _hands;
+    [SerializeField] private Transform _grabbedObject;
+    [SerializeField] private Vector3 _handSensorSize = new Vector3(1, 1, 1);
+
+    //Tao
+    
+
     void Awake()
     {
         _controller = GetComponent<CharacterController>();
@@ -45,6 +57,8 @@ public class PlayerController : MonoBehaviour
         _jumpAction = InputSystem.actions["Jump"];
         _lookAction = InputSystem.actions["Look"];
         _aimAction = InputSystem.actions["Aim"];
+        _grabAction = InputSystem.actions["Interact"];
+        _throwAction = InputSystem.actions["Throw"];
 
         //La cámara principal tiene que tener la tag de main camera
         _mainCamera = Camera.main.transform;
@@ -83,9 +97,19 @@ public class PlayerController : MonoBehaviour
 
         Gravity();
 
-        if(_aimAction.WasPerformedThisFrame())
+        if (_aimAction.WasPerformedThisFrame())
         {
             Attack();
+        }
+
+        if (_grabAction.WasPerformedThisFrame())
+        {
+            GrabObject();
+        }
+        
+        if(_throwAction.WasPerformedThisFrame())
+        {
+            Throw();
         }
     }
 
@@ -221,8 +245,80 @@ public class PlayerController : MonoBehaviour
     //Para ver donde esta el sensor
     void OnDrawGizmos()
     {
+        //Ground sensor
         Gizmos.color = Color.green;
 
         Gizmos.DrawWireSphere(_sensor.position, _sensorRadius);
+
+        //Sensor manos
+        Gizmos.color = Color.red;
+
+        Gizmos.DrawWireCube(_hands.position, _handSensorSize);
     }
+    void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        //con el oncontrollercolliderhit hay que acceder primero al transform a través de la variable local, y luego ya accedemos al gameObject entero)
+        if (hit.transform.gameObject.tag == "Empujable")
+        {
+            Rigidbody _rBody = hit.collider.attachedRigidbody;
+            //Rigidbody _rBody = hit.transform.GetComponent<Rigidbody2D>();
+
+            if (_rBody == null || _rBody.isKinematic)
+            {
+                return;
+            }
+
+            //Vector3 _pushDirection = hit.moveDirection;
+
+            Vector3 _pushDirection = new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z);
+
+            _rBody.linearVelocity = _pushDirection * _pushForce / _rBody.mass;
+        }
+    }
+
+    void GrabObject()
+    {
+        if (_grabbedObject == null)
+        {
+            Collider[] objectsToGrab = Physics.OverlapBox(_hands.position, _handSensorSize);
+
+            foreach (Collider item in objectsToGrab)
+            {
+                IGrabeable grabableObject = item.GetComponent<IGrabeable>();
+
+                if (grabableObject != null)
+                {
+                    _grabbedObject = item.transform;
+                    _grabbedObject.SetParent(_hands);
+                    _grabbedObject.position = _hands.position;
+                    _grabbedObject.rotation = _hands.rotation;
+                    _grabbedObject.GetComponent<Rigidbody>().isKinematic = true;
+
+                    return;
+                }
+            }
+        }
+        else
+        {
+            _grabbedObject.SetParent(null);
+            _grabbedObject.GetComponent<Rigidbody>().isKinematic = false;
+            _grabbedObject = null;
+        }
+    }
+    void Throw()
+    {
+        if (_grabbedObject == null)
+        {
+            return;
+        }
+
+        Rigidbody _grabbedBody = _grabbedObject.GetComponent<Rigidbody>();
+        
+        _grabbedObject.SetParent(null);
+        _grabbedBody.isKinematic = false;
+        _grabbedBody.AddForce(_mainCamera.transform.forward * _throwForce, ForceMode.Impulse);
+        _grabbedObject = null;
+    }
+
+
 }
