@@ -1,6 +1,8 @@
+using System;
 //using System.Numerics;
 using Unity.Mathematics;
 using UnityEngine;
+using Unity.VisualScripting;
 using UnityEngine.InputSystem;
 
 public class Player2Controller : MonoBehaviour
@@ -19,7 +21,6 @@ public class Player2Controller : MonoBehaviour
     [SerializeField] private float _movementSpeed = 5;
     [SerializeField] private float _jumpHeight = 2;
     [SerializeField] private float _smoothTime = 0.2f;
-    //variable de referencia
     private float _turnSmoothVelocity;
 
 
@@ -34,6 +35,19 @@ public class Player2Controller : MonoBehaviour
 
     private Transform _mainCamera;
 
+    //Libertinaje puro y duro
+    public float _speedChangeRate = 10;
+    public float speed;
+    public float _animationSpeed;
+    public bool isSprinting = false;
+    public float _sprintSpeed = 8;
+    public float targetAngle;
+
+    public float jumpTimeOut = 0.5f;
+    public float fallTImeOut = 0.15f;
+    float _jumpTimeOutDelta;
+    float _fallTimeOutDelta;
+
 
     void Awake()
     {
@@ -45,6 +59,12 @@ public class Player2Controller : MonoBehaviour
         _lookAction = InputSystem.actions["Look"];
 
         _mainCamera = Camera.main.transform;
+    }
+
+    void Start()
+    {
+        _jumpTimeOutDelta = jumpTimeOut;
+        _fallTimeOutDelta = fallTImeOut;
     }
 
     void Update()
@@ -62,35 +82,13 @@ public class Player2Controller : MonoBehaviour
         }
     }
 
-    void Attack()
-    {
-        Ray ray = Camera.main.ScreenPointToRay(_lookInput);
-        RaycastHit hit;
-        if (Physics.Raycast(ray, out hit, Mathf.Infinity))
-        {
-            IDamageable damageable = hit.transform.GetComponent<IDamageable>();
-            
-            if(damageable != null)
-            {
-                damageable.TakeDamage(5);
-            }
-        }
-    }
-
-    [SerializeField] float _speedChangeRate = 10;
-    float speed;
-    float _animationSpeed;
-    bool isSprinting = false;
-    float _sprintSpeed = 8;
-    float targetAngle;
-
-
     void Movement()
     {
         Vector3 direction = new Vector3(_moveInput.x, 0, _moveInput.y);
-        float targetSpeed;
+        //--------------------------------------------------------------
+        //float targetSpeed;
 
-        if (direction == Vector3.zero)
+        /*if (direction == Vector3.zero)
         {
             speed = 0;
             _animationSpeed = 0;
@@ -98,16 +96,19 @@ public class Player2Controller : MonoBehaviour
 
             _controller.Move(_playerGravity * Time.deltaTime);
             return;
-        }
+        }*/
 
-        if(isSprinting)
+        /*if(isSprinting)
         {
             targetSpeed = _sprintSpeed;
         }
         else
         {
             targetSpeed = _movementSpeed;
-        }
+        }*/
+        //--------------------------------------------------------------
+
+        float targetSpeed = _movementSpeed;
 
         if(direction == Vector3.zero)
         {
@@ -120,7 +121,7 @@ public class Player2Controller : MonoBehaviour
 
         if(currentSpeed < targetSpeed - speedOffset || currentSpeed > targetSpeed + speedOffset)
         {
-            speed = Mathf.Lerp(currentSpeed, targetSpeed, _speedChangeRate * Time.deltaTime);
+            speed = Mathf.Lerp(currentSpeed, targetSpeed * direction.magnitude, _speedChangeRate * Time.deltaTime);
 
             speed = Mathf.Round(speed * 1000f) / 1000f;
         }
@@ -138,7 +139,6 @@ public class Player2Controller : MonoBehaviour
 
         _animator.SetFloat("Speed", _animationSpeed);
         
-
         if (direction != Vector3.zero)
         {
             targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + _mainCamera.eulerAngles.y;
@@ -154,9 +154,12 @@ public class Player2Controller : MonoBehaviour
 
     void Jump()
     {
-        _animator.SetBool("Jump", true);
+        if(_jumpTimeOutDelta <= 0)
+        {
+            _animator.SetBool("Jump", true);
 
-        _playerGravity.y = Mathf.Sqrt(_jumpHeight * -2 * _gravity);
+            _playerGravity.y = Mathf.Sqrt(_jumpHeight * -2 * _gravity);
+        }
     }
 
     void Gravity()
@@ -164,6 +167,8 @@ public class Player2Controller : MonoBehaviour
         _animator.SetBool("Grounded", IsGrounded());
         if(IsGrounded())
         {
+            _fallTimeOutDelta = fallTImeOut;
+
             _animator.SetBool("Jump", false);
             _animator.SetBool("Fall", false);
 
@@ -171,11 +176,26 @@ public class Player2Controller : MonoBehaviour
             {
                 _playerGravity.y = -2;
             }
+
+            if(_jumpTimeOutDelta >= 0)
+            {
+                _jumpTimeOutDelta -= Time.deltaTime;
+            }
         }
         
         else
         {
-            _animator.SetBool("Fall", true);
+            _jumpTimeOutDelta = jumpTimeOut;
+
+            if(_fallTimeOutDelta >= 0)
+            {
+                _fallTimeOutDelta -= Time.deltaTime;
+            }
+            else
+            {
+                _animator.SetBool("Fall", true);
+            }
+
             _playerGravity.y += _gravity * Time.deltaTime;
         }
     }
